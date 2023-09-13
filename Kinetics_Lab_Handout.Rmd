@@ -24,7 +24,7 @@ library(stringr)
 library(gridExtra)
 if (!('zfit' %in% installed.packages()[,"Package"])) install.packages('zfit')
 if (!('mco' %in% installed.packages()[,"Package"])) install.packages('mco')
-
+if (!('ggpmisc' %in% installed.packages()[,"Package"])) install.packages('ggpmisc')
 library(zfit)
 library(mco)
 library(ggpmisc)
