@@ -1,0 +1,234 @@
+---
+title: "Lab 1: Kinetics R Analysis"
+author: ''
+date: ''
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+This R markdown document has several functions you might find useful when analyzing your data from the dye kinetics lab. Even if you don't use it in the final report, we encourage you to familiarize yourself with the analysis techniques shown here - they will become essential in the more R-focused labs 2 and 3 in the near future, and might help you even if you're doing your data analysis and visualiztion in Excel in this lab.
+
+First, let's import some libraries. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+#Import all the packages you may need
+library(tidyverse)
+library(tinytex)
+library(broom)
+library(knitr)
+library(rmarkdown)
+library(stringr)
+library(gridExtra)
+if (!('zfit' %in% installed.packages()[,"Package"])) install.packages('zfit')
+if (!('mco' %in% installed.packages()[,"Package"])) install.packages('mco')
+
+library(zfit)
+library(mco)
+library(ggpmisc)
+```
+
+## Importing your data
+
+Let's import some data. We have written out the code for you below. If you want a refresher on how to import data, please read Chapter 7 of the R manual. Note: make sure that you have set the right working directory!
+
+For this lab, there are two types of data you might have, one with time in one column and concentration (or absorbance in some cases) in the second, and one with concentration in the first column and pseudo first-order rate constants (or some other measurement of rate) in the second. Ensure that your dataset has headers with descriptive names and that you know the units of your data!
+
+```{r}
+Data <- as_tibble(read.csv("Data/ExampleKineticsData.csv"))
+
+Data
+```
+
+Does the table look the way you expect it to? If not, double-check the format of your data.
+
+## Plotting
+
+Let's start by making a basic plot of this data. Below is a function written out for you using the ggplot library. In the 'labs' function, add your plot title and axis labels. 
+
+Does this kind of function look familiar? You'll probably recognize it as similar to an exponential decay, unless something went very strangely in your experiment.
+
+```{r}
+ggplot(Data, aes(x=Time, y=Concentration))+
+    geom_point(size=3) +
+    theme_bw(base_size = 22) +
+    labs(title = '', x = '', y = '')
+```
+
+## Calculating reaction order
+
+Let's now do the first step in any kinetic calculation involving pseudo-kinetics. Your experiment should have had an excess of all reagents except for dye (which is what you're measuring), so your reaction should be pseudo-zeroth order with respect to everything except the dye. Let's use that to calculate the order of this reaction with respect to the dye and get a pseudo rate constant for the reaction. First things first, we need to calculate a few things. Remember that to do this graphically, we need to plot concentration, ln(concentration) (the R function for this is log()), and 1/concentration vs time and see which one is the most linear. In the first line we have defined a new column called 'zeroth' for the first one. In the next two lines, finish the calculations for first and second order plots then run the plotting code (with your own axis titles) to see what there is to see. 
+
+```{r}
+Data$zeroth <- Data$Concentration
+Data$first <- #What should be plotted for first-order?
+Data$second <- #What should be plotted for second-order?
+
+p0 <- ggplot(Data, aes(x=Time, y=zeroth))+
+    geom_point(size=3) +
+    theme_bw(base_size = 22) +
+    labs(title = '', x = '', y = '')
+
+p1 <- #Insert plotting code
+
+p2 <- #Insert plotting code
+
+
+p0
+p1
+p2
+```
+
+One of these should look linear, which should give you a sense of what the reaction order is, but let's get more quantitative by fitting a linear curve to each of these and looking at the goodness-of-fit based on the R^2 variable. That code is written out below for the zeroth-order plot (note the use of the saved plot variables in this case - if you run this many times you'll get overlapping fits, just run the previous cell if that happens to reset the plots. 
+
+Make plots for the first and second-order case as well.
+
+```{r}
+p0 <- p0 + stat_poly_line(method = 'lm', formula = y~poly(x,1), se=F) +
+      stat_poly_eq(formula = y ~ x, # formula uses aesthetic names
+                   use_label(c('eq','R2')),
+                   size=5)
+
+p1 <- 
+
+p2 <- 
+
+p0
+p1
+p2
+```
+
+Based on the correct plot, you should be able to calculate a pseudo rate constant using the slope of your most linear plot, and you have a quantitative measurement of how well a linear function fits each of these graphs. 
+
+
+## Calculating rate constants and initial rates
+
+In this section instead of using plots to calculate everything, we'll be directly calculating variables you're interested in. The examples below assume you're working with a pseudo-first order rate expression, but can be changed to apply to zeroth or second order functions as well. You can choose how you want to apply these functions - you may want to load different excel sheets with data separately, run this section for each and tabulate your data yourself, or if you're feeling confident with R you could write a function to do that all automatically (hint: You could make each of the variables a separate dataframe and iterate over all your files?)
+
+We'll be calculating pseudo first-order rate constants and initial rates. You don't really need initial rates for this lab, so if you'd like you can just focus on the pseudo rate constants, but initial rates are another useful metric that you may choose to use if you'd like, so we'll show you how to calculate it too. For both of these functions we'll be making linear models and extracting data we're interested in from there.
+
+```{r}
+#Re-initialize the data in case you've changed the functions above
+
+Data <- as_tibble(read.csv("Data/ExampleKineticsData.csv"))
+Data$first <- log(Data$Concentration)
+
+#Make a linear model between Time and ln(concentration)
+temp <- Data %>%
+        select(Time, first) %>%
+        zlm(first ~ Time)
+
+#This extracts the negative slope of the above model
+rateConstant <- -coef(temp)['Time']
+#This is to extract the standard deviation of an individual coefficient inside of the linear model.
+rateConstanterr <- sqrt(diag(vcov(temp)))['Time']
+
+
+# This builds a linear model between the first few points in time vs. concentration.
+# Change the number in the 'head' variable to change how many of the initial few points you use for the calculation
+temp <- Data %>%
+        select(Time, Concentration) %>%
+        head(3) %>%
+        zlm(Concentration ~ Time)
+
+initialRate <- -coef(temp)['Time']
+initialRateErr <- sqrt(diag(vcov(temp)))['Time']
+
+
+kable(t(c(rateConstant, rateConstanterr, initialRate, initialRateErr)), 
+      col.names = c("Pseudo-first order rate constant (s^-1)", "SD of rate constant", 
+                   "Initial rate (M/s)", "SD of initial rate"))
+```
+
+## Solving reaction orders of non-measured variables and more complicated models
+
+Once you have a bunch of rate constants (or initial rates) from different experiments you might want to use them to calculate the reaction order with respect to another species in your reaction. The best way to do this is often to plot them, as shown in the function below. For the input file, give it a .csv with concentrations in the first column and rate constants in the second (or just use the example data we've provided).
+
+```{r}
+Data <- as_tibble(read.csv("Data/ExampleKineticsData2.csv"))
+plot <- ggplot(Data, aes(x=Concentration, y=Rate_Constant))+
+    geom_point(size=3) +
+    theme_bw(base_size = 22) +
+    labs(title = 'Rate constant vs concentration', x = 'Concentration (M)', y = 'Pseudo first-order rate constant (s)')
+plot
+```
+
+If your function looks linear, then your reaction is probably first-order with respect to that variable, but if it isn't you might need to do some more complicated curve fitting. Let's take that plot and try some different function forms that might be interesting. To do this, we'll be using the stat_smooth function in ggplot. You'll notice we actually did this before when we were calculating reaction order with respect to the dye, but this time we'll be using different function forms. In the 'formula argument of stat_smooth and stat_ma_eq, you can write whatever function you'd like within the I() function. (I is there to make R interpret the function as-is. You might want to try polynomials (use formula = y~poly(x,n) where n is the (positive) degree of the polynomial, or you might find other types of functions useful such as the one below from the example kinetics calculations document, a 1/(1+x) function which will match the example data we gave you. 
+
+```{r}
+plot <- plot +  stat_smooth(method = 'lm', formula = y~I(1/(1+x)), aes(weight=1/Rate_Constant), se=F) +
+      stat_ma_eq(formula = y ~ I(1/(1+x)), # formula uses aesthetic names
+                 use_label(c('R2')))
+
+plot
+```
+
+## Optimizing a reaction solution with your rate law
+
+Finally, let's optimize our reaction conditions to minimize the concentration of each of our reagents while still ensuring that the reaction solution will do its job (in this case reducing the concentration of brilliant blue by 100 fold). This is not a trivial problem, because we have to optimize multiple variables subject to a complicated constraint. 
+
+First, let's decide what we want to optimize. In our assignment sheet, we've defined 'mild conditions' as the lowest sum of the concentrations of each of our reagents. Hence, we define 'minimizeFunction' as the sum of each of the concentrations of hydrogen peroxide (which will be concentrations[1]), any other concentrations, plus an extra 10 times the concentration of hydrogen peroxide to account for the concentration of buffer we need to use to maintain pH. 
+
+```{r}
+minimizeFunction = function(concentrations) { sum(concentrations) + concentrations[1]*10 }
+```
+
+This gives us a function we can run with a vector of concentrations (of any length) that will return the sum of those concentrations. That's easy enough. Next is the tricky part. We need to define our constraint. The way the optimization function we're going to use works requires that you give it a function (with the same vector of concentrations) that should be kept greater than or equal to 0. How should we define a function that will be less than 0 if our reaction is too slow and greater than 1 if our reaction is fast enough?
+
+The best way to approach this is to break apart whatever rate law you have into a pseudo first-order rate law with respect to the dye since we know how much we want to reduce the concentration of the dye. Your pseudo first-order rate constant is your rate law with the dye term divided out. We can then calculate an integrated rate law of the form (run this cell if it isn't already to format the equation, it's LaTeX:
+\begin{equation}
+\ln{\frac{[BB]}{[BB_0]}} = - k't
+\end{equation}
+
+We want our fraction 
+\begin{equation}\frac{[BB]}{[BB_0]}\end{equation}
+to be \begin{equation}\frac{10^{-7}M}{10^{-5}M}\end{equation}
+
+after 24 hours, so we can tell that we want k' to be: 
+
+\begin{equation}
+k' = -\frac{\ln{0.01}}{86400\:seconds}
+\end{equation}
+or 
+\begin{equation}
+k' = 2.67x10^{-5}\: s^{-1}
+\end{equation}
+
+Now that we know that, we can define a function that calculates the expected pseudo first-order rate constant and subtract the required rate constant from that. Let's do that here. We have filled in the general form of how your function should look, but you'll have to enter the values of each of your constants (you may have to add or remove some constants and/or concentration values)
+
+```{r}
+requiredrate <- 2.67E-5
+rateFunction = function(concentrations) {
+    constant1 <- #value of your first constant
+    constant2 <- #value of your second constant
+    a <- concentrations[1] #Concentration of your first reagent
+    b <- concentrations[2] #Concentration of your second reagent
+    output = ***Your rate law here*** - requiredrate
+    return(output)
+}
+```
+
+Now that that's set up we can do the actual optimization! We are using an external library for this, since built-in R optimization functions can't quite handle this level of complexity. We've set this up for you, but feel free to look through the documentation to understand the inner workings of this function. Very briefly, it's actually taking 100 possible values for each concentration and then rating them based on how small they are. It then generates a new 'generation' of these input parameters based on which ones scored the best. It repeats this 500 times until giving an output of the last generation. We'll be taking the average of that last generation as our output value.
+
+All you really need to do here is make sure that 'numConcentrations' matches the number of concentrations in your rate function and 'lower' and 'upper' both have the right number of zeros and 10s to match the number of concentrations. Add some captions to the output table and voila, you have completed this part of the lab.
+
+```{r}
+numConcentrations <- 2
+
+lower <- c(0,0)
+upper <- c(10,10)
+
+optimized <- nsga2(minimizeFunction, numConcentrations, 1, popsize = 100, 
+                   generations = 500, lower.bounds=lower, upper.bounds = upper, 
+                   constraints = rateFunction, cdim = 1)
+
+kable(t(append(colMeans(optimized$par), colMeans(optimized$par)[1]*10)), 
+      col.names = c("Hydrogen peroxide (M)", "Chemical2name (M)", "Buffername (M)"), 
+      caption = "Optimized concentrations of each reagent")
+```
+
+```{r}
+
+```
