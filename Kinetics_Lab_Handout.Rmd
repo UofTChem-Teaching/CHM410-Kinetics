@@ -177,24 +177,15 @@ minimizeFunction = function(concentrations) { sum(concentrations) + concentratio
 
 This gives us a function we can run with a vector of concentrations (of any length) that will return the sum of those concentrations. That's easy enough. Next is the tricky part. We need to define our constraint. The way the optimization function we're going to use works requires that you give it a function (with the same vector of concentrations) that should be kept greater than or equal to 0. How should we define a function that will be less than 0 if our reaction is too slow and greater than 1 if our reaction is fast enough?
 
-The best way to approach this is to break apart whatever rate law you have into a pseudo first-order rate law with respect to the dye since we know how much we want to reduce the concentration of the dye. Your pseudo first-order rate constant is your rate law with the dye term divided out. We can then calculate an integrated rate law of the form (run this cell if it isn't already to format the equation, it's LaTeX:
-\begin{equation}
-\ln{\frac{[BB]}{[BB_0]}} = - k't
-\end{equation}
+The best way to approach this is to break apart whatever rate law you have into a pseudo first-order rate law with respect to the dye since we know how much we want to reduce the concentration of the dye. Your pseudo first-order rate constant is your rate law with the dye term divided out. We can then calculate an integrated rate law of the form (click the LATEX equations to see them formatted):
 
-We want our fraction 
-\begin{equation}\frac{[BB]}{[BB_0]}\end{equation}
-to be \begin{equation}\frac{10^{-7}M}{10^{-5}M}\end{equation}
+$$ln{\frac{[BB]}{[BB_0]}} = - k't$$
 
-after 24 hours, so we can tell that we want k' to be: 
+We want our fraction $$\frac{[BB]}{[BB_0]}$$ to be $$\frac{10^{-7}M}{10^{-5}M}$$
 
-\begin{equation}
-k' = -\frac{\ln{0.01}}{86400\:seconds}
-\end{equation}
-or 
-\begin{equation}
-k' = 2.67x10^{-5}\: s^{-1}
-\end{equation}
+after 24 hours, so we can tell that we want k' to be:
+
+$$k' = -\frac{\ln{0.01}}{86400\:seconds} \ \ \ or \ \ \ k' = 2.67x10^{-5}\: s^{-1}$$
 
 Now that we know that, we can define a function that calculates the expected pseudo first-order rate constant and subtract the required rate constant from that. Let's do that here. We have filled in the general form of how your function should look, but you'll have to enter the values of each of your constants (you may have to add or remove some constants and/or concentration values)
 
